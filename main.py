@@ -1,3 +1,5 @@
+# start of file
+
 def main():
     pass
 
