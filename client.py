@@ -33,7 +33,7 @@ class BlankFrame(Frame):
         self.root = root
 
 
-class Game(Tk):
+class ClientApp(Tk):
 
     def __init__(self):
 
@@ -59,5 +59,5 @@ class Game(Tk):
 
 
 if __name__ == "__main__":
-    game = Game()
+    game = ClientApp()
     game.mainloop()
