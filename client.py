@@ -5,9 +5,14 @@ import threading
 HOST = '127.0.0.1'
 PORT = 25252
 
+WIDGET_SPACE = 10
+
 APPROVED = 'APPROVED'  # Correct username and password
 ICUSER = 'ICUSER'  # InCorrect Username
 ICPASS = 'ICPASS'  # InCorrect Password
+QUIT = 'QUIT'
+
+QUIT_EVENT = 'WM_DELETE_WINDOW'
 
 INTERACTABLE_FONT = ("Comic Sans MS", 12)
 END = 'end'
@@ -27,10 +32,14 @@ class BaseFrame(Frame):
 
         self.root = root
         self.entries = []
+        self.labels = []
 
     def load(self):
         for box in self.entries:
             box.delete(0, END)
+        for i in range(len(self.labels)):
+            self.labels[0].destroy()
+            del(self.labels[0])
         self.tkraise()
 
 
@@ -48,13 +57,13 @@ class LoginFrame(BaseFrame):
         self.update_idletasks()
 
         self.username_box = Entry(self, width=25, bg=WHITE, font=INTERACTABLE_FONT)
-        self.username_box.place(relx=0.5, rely=0.5, y=-self.password_box.winfo_height() - 10, anchor=CENTER)
+        self.username_box.place(relx=0.5, rely=0.5, y=-self.password_box.winfo_height() - WIDGET_SPACE, anchor=CENTER)
         self.entries.append(self.username_box)
 
         self.sign_in_button = Button(self, width=8, height=1, font=INTERACTABLE_FONT, text="Sign in",
                                      command=lambda: self.try_login(username=self.username_box.get(),
                                                                     password=self.password_box.get()))
-        self.sign_in_button.place(relx=0.5, rely=0.5, y=0.5*self.password_box.winfo_height() + 10, anchor=N)
+        self.sign_in_button.place(relx=0.5, rely=0.5, y=0.5*self.password_box.winfo_height() + WIDGET_SPACE, anchor=N)
 
     def try_login(self, username, password):
         response = self.root.try_login(username, password).split(' ')
@@ -69,8 +78,9 @@ class LoginFrame(BaseFrame):
                 char_box.pack()
                 self.update_idletasks()
                 char_box.place(x=self.password_box.winfo_x() + i * char_box.winfo_width(),
-                               y=self.sign_in_button.winfo_y() + self.sign_in_button.winfo_height() + 10 + self.attempts * (char_box.winfo_height() + 10),
+                               y=self.sign_in_button.winfo_y() + self.sign_in_button.winfo_height() + WIDGET_SPACE + self.attempts * (char_box.winfo_height() + WIDGET_SPACE),
                                anchor=NW)
+                self.labels.append(char_box)
 
             self.attempts += 1
 
@@ -105,6 +115,8 @@ class ClientApp(Tk):
             frame.grid(row=0, column=0, sticky="nsew")
             self.frames[F.__name__] = frame
 
+        self.protocol(QUIT_EVENT, self.on_close)
+
         self.show_frame(LoginFrame.__name__)
 
     def show_frame(self, name):
@@ -117,6 +129,13 @@ class ClientApp(Tk):
             print("Logging in.")
             self.show_frame(InAppFrame.__name__)
         return response
+
+    def on_close(self):
+        try:
+            self.socket.send(QUIT.encode())
+        except Exception as e:
+            print(e)
+        self.destroy()
 
 
 if __name__ == "__main__":

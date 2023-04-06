@@ -5,11 +5,16 @@ APPROVED = 'APPROVED'  # Correct username and password
 ICUSER = 'ICUSER'  # InCorrect Username
 ICPASS = 'ICPASS'  # InCorrect Password
 
+LOGIN = 'LOGIN'
+QUIT = 'QUIT'
+
 IP = '0.0.0.0'
 PORT = 25252
 N_PLAYERS = 8
 
-PASSWORDS = {"a": "pass12345"}
+PASSWORDS = {"a": "pass12345",
+             "b": "trollers147",
+             "c": "69Pog69"}
 
 
 def hint_password(correct, attempt):
@@ -41,13 +46,14 @@ def hint_password(correct, attempt):
 
 def handle_client(client):
     attempts = {user: 0 for user in PASSWORDS.keys()}
+    maintain_connection = True
     with client:
-        while True:
+        while maintain_connection:
             data = client.recv(1024).decode().split(" ")
             command = data[0]
             args = data[1:]
-            print(args)
-            if command == "LOGIN":
+            # print(args)
+            if command == LOGIN:
                 username, password = args
                 if username in PASSWORDS.keys():
                     if PASSWORDS[username] == password:
@@ -59,6 +65,9 @@ def handle_client(client):
                 else:
                     print("user")
                     client.send(ICUSER.encode())
+            elif command == QUIT:
+                print(f"Disconnecting from {client}")
+                maintain_connection = False
 
 
 def main():
@@ -68,7 +77,7 @@ def main():
         server.listen(N_PLAYERS)
         while True:
             client, address = server.accept()
-            print(f"Connected to {client}.")
+            print(f"Connected to {client}")
             new_thread = threading.Thread(target=handle_client, args=(client,))
             threads.append(new_thread)
             new_thread.start()
