@@ -1,4 +1,6 @@
-from baseclasses import BaseFrame
+from clientbase import *
+from tkinter import *
+from constants import *
 
 
 class LoginFrame(BaseFrame):
@@ -24,11 +26,9 @@ class LoginFrame(BaseFrame):
         self.sign_in_button.place(relx=0.5, rely=0.5, y=0.5*self.password_box.winfo_height() + WIDGET_SPACE, anchor=N)
 
     def try_login(self, username, password):
-        response = self.root.try_login(username, password).split(' ')
-        key = response[0]
-        args = response[1:]
+        key, args = self.root.try_login(username, password)
         if key == ICPASS:
-            for i in range(len(args)):
+            for i in range(len(args[1:])):
                 char = args[i][0]
                 colors = [COLORS[c] for c in args[i][1:]]
                 char_box = Label(self, bg=WHITE if len(colors) == 0 else colors[0], font=INTERACTABLE_FONT, height=1,
@@ -38,13 +38,30 @@ class LoginFrame(BaseFrame):
                 char_box.place(x=self.password_box.winfo_x() + i * char_box.winfo_width(),
                                y=self.sign_in_button.winfo_y() + self.sign_in_button.winfo_height() + WIDGET_SPACE + self.attempts * (char_box.winfo_height() + WIDGET_SPACE),
                                anchor=NW)
-                self.labels.append(char_box)
+                self.temporaries.append(char_box)
 
             self.attempts += 1
 
     def load(self):
         self.attempts = 0
         super().load()
+
+
+class DropdownFrame(BaseFrame):
+
+    def __init__(self, parent, root, usernames):
+        super().__init__(parent, root, width=ACCOUNT_BUTTON_SIZE[0], height=WINDOW_SIZE[1])
+
+        self.buttons = [AccountButton(self, self.root, user) for user in usernames]
+        for button in self.buttons:
+            button.pack(side=TOP)
+
+    def update_buttons(self, usernames):
+        for button in self.buttons:
+            button.destroy()
+        self.buttons = [AccountButton(self, self.root, user) for user in usernames]
+        for button in self.buttons:
+            button.pack(side=TOP)
 
 
 class InAppFrame(BaseFrame):
@@ -55,3 +72,7 @@ class InAppFrame(BaseFrame):
         self.back_button = Button(self, width=5, height=1, font=INTERACTABLE_FONT, text="Back",
                                   command=lambda: self.root.show_frame(LoginFrame.__name__))
         self.back_button.pack()
+
+        # self.account_buttons = []
+        # for i in range(len(self.root.accounts)):
+        #     button = AccountButton()

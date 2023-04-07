@@ -2,100 +2,64 @@
 
 import socket
 import threading
-
-APPROVED = 'APPROVED'  # Correct username and password
-ICUSER = 'ICUSER'  # InCorrect Username
-ICPASS = 'ICPASS'  # InCorrect Password
-
-LOGIN = 'LOGIN'
-QUIT = 'QUIT'
-
-IP = '0.0.0.0'
-PORT = 25252
-N_PLAYERS = 8
-
-PASSWORDS = {"a": "pass12345",
-             "b": "trollers147",
-             "c": "69Pog69"}
+from constants import *
+from serverbase import *
 
 
-def hint_password(correct, attempt):
-    """generates wordle-like packet based on the entered password and the correct one.
-    message is in the form of 'ICPASS [character][colors] [character][colors]'...
-    where the colors indicate the hints for each characters:
-        g = green = correct
-        y = yellow = exists in password
-        p = purple = adjacent to the correct character in the ASCII table
-        r = red = at the end of the string, indicates incorrect length"""
+class Server(threading.Thread):
 
-    message = ICPASS
-    for i in range(len(attempt)):
-        if i == len(correct):
-            message += ' ' + attempt[i] + 'r'
-            return message.encode()
-        message += " " + attempt[i]
-        if attempt[i] == correct[i]:
-            message += 'g'
-        else:
-            if attempt[i] in correct:
-                message += 'y'
-            if abs(ord(attempt[i]) - ord(correct[i])) == 1:
-                message += 'p'
-    if len(attempt) < len(correct):
-        message += " \0r"
-    return message.encode()
+    def __init__(self):
+        super().__init__(target=self.handle_server)
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.clients = []
+        self.start()
+        while True:
+            username = input("Enter username: ")
+            password = input("Enter password: ")
+            PASSWORDS[username] = password
 
+    def handle_server(self):
+        with self.socket:
+            self.socket.bind((IP, PORT))
+            self.socket.listen(N_PLAYERS)
+            while True:
+                client_socket, address = self.socket.accept()
+                print(f"Connected to {client_socket}")
+                new_client = Client(handle=self.handle_client, client_socket=client_socket)
+                self.clients.append(new_client)
+                new_client.start()
 
-def handle_client(client):
-    attempts = {user: 0 for user in PASSWORDS.keys()}
-    maintain_connection = True
-    with client:
+    def handle_client(self, client_socket):
+        attempts = {user: 0 for user in PASSWORDS.keys()}
+        accessible = []
+        maintain_connection = True
         while maintain_connection:
-            data = client.recv(1024).decode().split(" ")
+            data = client_socket.recv(1024).decode().split(" ")
             command = data[0]
             args = data[1:]
-            # print(args)
             if command == LOGIN:
                 username, password = args
                 if username in PASSWORDS.keys():
-                    if PASSWORDS[username] == password:
-                        client.send(APPROVED.encode())
-                        # TODO: send to all relevant players that the account has been hacked
+                    if username in accessible and password == "":
+                        client_socket.send(f"{APPROVED} {username}".encode())
+                    elif PASSWORDS[username] == password:
+                        accessible.append(username)
+                        client_socket.send(f"{APPROVED} {username}".encode())
+                        for other_client in self.clients:
+                            other_client.socket.send(f"{HACKED} {username}".encode())
                     else:
                         print("pass")
-                        client.send(hint_password(PASSWORDS[username], password))
+                        client_socket.send((f"{ICPASS} {username}" + hint_password(PASSWORDS[username], password)).encode())
                         attempts[username] += 1
                 else:
                     print("user")
-                    client.send(ICUSER.encode())
+                    client_socket.send(f"{ICUSER} {username}".encode())
             elif command == QUIT:
-                print(f"Disconnecting from {client}")
+                print(f"Disconnecting from {client_socket}")
                 maintain_connection = False
-
-
-def handle_server():
-    client_threads = []
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
-        server.bind((IP, PORT))
-        server.listen(N_PLAYERS)
-        while True:
-            client, address = server.accept()
-            print(f"Connected to {client}")
-            new_thread = threading.Thread(target=handle_client, args=(client,))
-            client_threads.append(new_thread)
-            new_thread.start()
-
-
-def main():
-    threads = []
-    server_thread = threading.Thread(target=handle_server)
-    threads.append(server_thread)
-    server_thread.start()
-    while True:
-        username = input("Enter username: ")
-        password = input("Enter password: ")
-        PASSWORDS[username] = password
+        client_socket.close()
+        self.clients.pop([client.socket for client in self.clients].index(client_socket))
 
 
 if __name__ == "__main__":
-    main()
+    server = Server()
