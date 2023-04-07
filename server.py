@@ -1,3 +1,5 @@
+# TODO: add logged in users for each client + log out message when hacked
+
 import socket
 import threading
 
@@ -58,6 +60,7 @@ def handle_client(client):
                 if username in PASSWORDS.keys():
                     if PASSWORDS[username] == password:
                         client.send(APPROVED.encode())
+                        # TODO: send to all relevant players that the account has been hacked
                     else:
                         print("pass")
                         client.send(hint_password(PASSWORDS[username], password))
@@ -70,8 +73,8 @@ def handle_client(client):
                 maintain_connection = False
 
 
-def main():
-    threads = []
+def handle_server():
+    client_threads = []
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
         server.bind((IP, PORT))
         server.listen(N_PLAYERS)
@@ -79,8 +82,19 @@ def main():
             client, address = server.accept()
             print(f"Connected to {client}")
             new_thread = threading.Thread(target=handle_client, args=(client,))
-            threads.append(new_thread)
+            client_threads.append(new_thread)
             new_thread.start()
+
+
+def main():
+    threads = []
+    server_thread = threading.Thread(target=handle_server)
+    threads.append(server_thread)
+    server_thread.start()
+    while True:
+        username = input("Enter username: ")
+        password = input("Enter password: ")
+        PASSWORDS[username] = password
 
 
 if __name__ == "__main__":
