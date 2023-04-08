@@ -12,11 +12,18 @@ class Server(threading.Thread):
         super().__init__(target=self.handle_server)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.clients = []
+        self.accounts = {username: Account(username, PASSWORDS[username]) for username in PASSWORDS.keys()}
         self.start()
         while True:
             username = input("Enter username: ")
             password = input("Enter password: ")
-            PASSWORDS[username] = password
+            self.accounts[username].password = password
+
+    def broadcast(self, message, condition=None):
+        condition = condition if condition else lambda x: True
+        for client in self.clients:
+            if condition(client):
+                client.socket.send(message)
 
     def handle_server(self):
         with self.socket:
@@ -25,40 +32,39 @@ class Server(threading.Thread):
             while True:
                 client_socket, address = self.socket.accept()
                 print(f"Connected to {client_socket}")
-                new_client = Client(handle=self.handle_client, client_socket=client_socket)
+                new_client = Client(handle=self.handle_client, client_socket=client_socket, accounts=self.accounts)
                 self.clients.append(new_client)
                 new_client.start()
 
-    def handle_client(self, client_socket):
-        attempts = {user: 0 for user in PASSWORDS.keys()}
-        accessible = []
+    def handle_client(self, client):
         maintain_connection = True
         while maintain_connection:
-            data = client_socket.recv(1024).decode().split(" ")
+            data = client.socket.recv(1024).decode().split(' ')
             command = data[0]
             args = data[1:]
             if command == LOGIN:
                 username, password = args
-                if username in PASSWORDS.keys():
-                    if username in accessible and password == "":
-                        client_socket.send(f"{APPROVED} {username}".encode())
-                    elif PASSWORDS[username] == password:
-                        accessible.append(username)
-                        client_socket.send(f"{APPROVED} {username}".encode())
-                        for other_client in self.clients:
-                            other_client.socket.send(f"{HACKED} {username}".encode())
+                if username in self.accounts.keys():
+                    if username in client.accessible and password == "":
+                        client.socket.send(f"{APPROVED} {username}".encode())
+                    elif self.accounts[username].password == password:
+                        client.accessible.append(username)
+                        client.socket.send(f"{APPROVED} {username}".encode())
+                        self.broadcast(f"{HACKED} {username}".encode(), lambda c: c != client)
                     else:
                         print("pass")
-                        client_socket.send((f"{ICPASS} {username}" + hint_password(PASSWORDS[username], password)).encode())
-                        attempts[username] += 1
+                        client.socket.send((f"{ICPASS} {username}" + hint_password(self.accounts[username].password, password)).encode())
+                        client.attempts[username] += 1
                 else:
                     print("user")
-                    client_socket.send(f"{ICUSER} {username}".encode())
+                    client.socket.send(f"{ICUSER} {username}".encode())
+            elif command == LOGOUT:
+                self.broadcast((' '.join(data)).encode(), lambda c: args[0] in c.accessible and c != client)
             elif command == QUIT:
-                print(f"Disconnecting from {client_socket}")
+                print(f"Disconnecting from {client.socket}")
                 maintain_connection = False
-        client_socket.close()
-        self.clients.pop([client.socket for client in self.clients].index(client_socket))
+        client.socket.close()
+        self.clients.remove(client)
 
 
 if __name__ == "__main__":

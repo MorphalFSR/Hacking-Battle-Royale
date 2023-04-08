@@ -23,7 +23,7 @@ class LoginFrame(BaseFrame):
         self.sign_in_button = Button(self, width=8, height=1, font=INTERACTABLE_FONT, text="Sign in",
                                      command=lambda: self.try_login(username=self.username_box.get(),
                                                                     password=self.password_box.get()))
-        self.sign_in_button.place(relx=0.5, rely=0.5, y=0.5*self.password_box.winfo_height() + WIDGET_SPACE, anchor=N)
+        self.sign_in_button.place(relx=0.5, rely=0.5, y=0.5 * self.password_box.winfo_height() + WIDGET_SPACE, anchor=N)
 
     def try_login(self, username, password):
         key, args = self.root.try_login(username, password)
@@ -36,7 +36,8 @@ class LoginFrame(BaseFrame):
                 char_box.pack()
                 self.update_idletasks()
                 char_box.place(x=self.password_box.winfo_x() + i * char_box.winfo_width(),
-                               y=self.sign_in_button.winfo_y() + self.sign_in_button.winfo_height() + WIDGET_SPACE + self.attempts * (char_box.winfo_height() + WIDGET_SPACE),
+                               y=self.sign_in_button.winfo_y() + self.sign_in_button.winfo_height() + WIDGET_SPACE + self.attempts * (
+                                           char_box.winfo_height() + WIDGET_SPACE),
                                anchor=NW)
                 self.temporaries.append(char_box)
 
@@ -69,9 +70,14 @@ class InAppFrame(BaseFrame):
     def __init__(self, parent, root):
         super().__init__(master=parent, root=root)
 
+        self.username = None
         self.back_button = Button(self, width=5, height=1, font=INTERACTABLE_FONT, text="Back",
                                   command=lambda: self.root.show_frame(LoginFrame.__name__))
         self.back_button.pack()
+
+        self.logout_button = Button(self, width=20, height=1, font=INTERACTABLE_FONT, text="Log out of all other accounts",
+                                    command=lambda: self.root.socket.send(f"{LOGOUT} {self.username}".encode()))
+        self.logout_button.pack()
 
         # self.account_buttons = []
         # for i in range(len(self.root.accounts)):

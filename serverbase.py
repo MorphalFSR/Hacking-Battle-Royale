@@ -5,6 +5,7 @@ from constants import *
 IP = '0.0.0.0'
 PORT = 25252
 N_PLAYERS = 8
+INIT_MONEY = 500
 
 PASSWORDS = {"a": "pass12345",
              "b": "trollers147",
@@ -40,6 +41,16 @@ def hint_password(correct, attempt):
 
 class Client(threading.Thread):
 
-    def __init__(self, handle, client_socket):
-        super().__init__(target=handle, args=(client_socket,))
+    def __init__(self, handle, client_socket, accounts):
+        super().__init__(target=handle, args=(self,))
         self.socket = client_socket
+        self.accessible = []
+        self.attempts = {user: 0 for user in accounts.keys()}
+
+
+class Account:
+
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+        self.money = INIT_MONEY
