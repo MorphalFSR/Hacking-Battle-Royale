@@ -78,7 +78,7 @@ class ClientApp(Tk):
         print("Logging in.")
         self.accounts.add(username)
         self.dropdown.update_buttons(self.accounts)
-        self.frames[InAppFrame.__name__].username = username
+        self.frames[InAppFrame.__name__].set_user(username)
         self.show_frame(InAppFrame.__name__)
 
     def on_close(self):

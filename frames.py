@@ -27,10 +27,11 @@ class LoginFrame(BaseFrame):
 
     def try_login(self, username, password):
         key, args = self.root.try_login(username, password)
+        print(key, args)
         if key == ICPASS:
             for i in range(len(args[1:])):
-                char = args[i][0]
-                colors = [COLORS[c] for c in args[i][1:]]
+                char = args[i + 1][0]
+                colors = [COLORS[c] for c in args[i + 1][1:]]
                 char_box = Label(self, bg=WHITE if len(colors) == 0 else colors[0], font=INTERACTABLE_FONT, height=1,
                                  width=1, text=char)
                 char_box.pack()
@@ -71,6 +72,10 @@ class InAppFrame(BaseFrame):
         super().__init__(master=parent, root=root)
 
         self.username = None
+
+        self.username_label = Label(self, height=1, font=INTERACTABLE_FONT)
+        self.username_label.pack()
+
         self.back_button = Button(self, width=5, height=1, font=INTERACTABLE_FONT, text="Back",
                                   command=lambda: self.root.show_frame(LoginFrame.__name__))
         self.back_button.pack()
@@ -82,3 +87,7 @@ class InAppFrame(BaseFrame):
         # self.account_buttons = []
         # for i in range(len(self.root.accounts)):
         #     button = AccountButton()
+
+    def set_user(self, username):
+        self.username = username
+        self.username_label.config(text="Signed in to account: " + self.username)

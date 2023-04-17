@@ -44,6 +44,7 @@ class Server(threading.Thread):
             args = data[1:]
             if command == LOGIN:
                 username, password = args
+                print(username, password)
                 if username in self.accounts.keys():
                     if username in client.accessible and password == "":
                         client.socket.send(f"{APPROVED} {username}".encode())
