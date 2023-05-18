@@ -1,6 +1,7 @@
 import socket
 import threading
 from constants import *
+from time import sleep
 
 IP = '0.0.0.0'
 PORT = 25252
@@ -10,6 +11,16 @@ INIT_MONEY = 500
 PASSWORDS = {"a": "pass12345",
              "b": "trollers147",
              "c": "69Pog69"}
+
+
+def wait_and_send(self, client, message, time):
+    sleep(time)
+    client.socket.send(message)
+
+
+def delayed_message(self, client, message, time):
+    """sends the pre-constructed message to client after given amount of time (in seconds)"""
+    t = threading.Thread(target=wait_and_send, kwargs={"client": client, "message": message, "time": time})
 
 
 def hint_password(correct, attempt):
