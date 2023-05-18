@@ -7,6 +7,8 @@ IP = '0.0.0.0'
 PORT = 25252
 N_PLAYERS = 8
 INIT_MONEY = 500
+MAX_ATTEMPTS = 5
+BLOCK_TIME = 10
 
 PASSWORDS = {"a": "pass12345",
              "b": "trollers147",

@@ -14,10 +14,13 @@ class BaseFrame(Frame):
     def load(self):
         for box in self.entries:
             box.delete(0, END)
+        self.clear_screen()
+        self.tkraise()
+
+    def clear_screen(self):
         for i in range(len(self.temporaries)):
             self.temporaries[0].destroy()
             del(self.temporaries[0])
-        self.tkraise()
 
 
 class AccountButton(Button):

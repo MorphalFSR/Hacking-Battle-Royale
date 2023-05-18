@@ -14,10 +14,10 @@ class Server(threading.Thread):
         self.clients = []
         self.accounts = {username: Account(username, PASSWORDS[username]) for username in PASSWORDS.keys()}
         self.start()
-        while True:
-            username = input("Enter username: ")
-            password = input("Enter password: ")
-            self.accounts[username].password = password
+        # while True:
+        #     username = input("Enter username: ")
+        #     password = input("Enter password: ")
+        #     self.accounts[username].password = password
 
     def broadcast(self, message, condition=None):
         condition = condition if condition else lambda x: True
@@ -42,23 +42,31 @@ class Server(threading.Thread):
             data = client.socket.recv(1024).decode().split(' ')
             command = data[0]
             args = data[1:]
+
+            # user trying to log in to an account
             if command == LOGIN:
                 username, password = args
                 print(username, password)
                 if username in self.accounts.keys():
                     if username in client.accessible and password == "":
                         client.socket.send(f"{APPROVED} {username}".encode())
-                    elif self.accounts[username].password == password:
-                        client.accessible.append(username)
-                        client.socket.send(f"{APPROVED} {username}".encode())
-                        self.broadcast(f"{HACKED} {username}".encode(), lambda c: c != client)
+                    elif client.attempts[username] < MAX_ATTEMPTS:
+                        if self.accounts[username].password == password:
+                            client.accessible.append(username)
+                            client.socket.send(f"{APPROVED} {username}".encode())
+                            self.broadcast(f"{HACKED} {username}".encode(), lambda c: c != client)
+                        else:
+                            print("pass")
+                            client.socket.send((f"{ICPASS} {username}" + hint_password(self.accounts[username].password, password)).encode())
+                            client.attempts[username] += 1
                     else:
-                        print("pass")
-                        client.socket.send((f"{ICPASS} {username}" + hint_password(self.accounts[username].password, password)).encode())
-                        client.attempts[username] += 1
+                        if client.attempts[username] == MAX_ATTEMPTS:
+                            delayed_message(client, f"{UNBLOCKED} {username}", BLOCK_TIME)
+                        client.socket.send(f"{BLOCKED} {username} {BLOCK_TIME}")
                 else:
                     print("user")
                     client.socket.send(f"{ICUSER} {username}".encode())
+
             elif command == LOGOUT:
                 self.broadcast((' '.join(data)).encode(), lambda c: args[0] in c.accessible and c != client)
             elif command == QUIT:

@@ -97,6 +97,8 @@ class ClientApp(Tk):
                 self.messages.append((split_message[0], split_message[1:]))
                 hacked_args = self.get_response(HACKED)
                 logout_args = self.get_response(LOGOUT)
+                blocked_args = self.get_response(BLOCKED)
+                unblocked_args = self.get_response(UNBLOCKED)
                 if hacked_args:
                     print(hacked_args)
                     print(f"Account {hacked_args[0]} was hacked!")
