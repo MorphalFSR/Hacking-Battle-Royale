@@ -15,14 +15,8 @@ PASSWORDS = {"a": "pass12345",
              "c": "69Pog69"}
 
 
-def wait_and_send(self, client, message, time):
-    sleep(time)
-    client.socket.send(message)
-
-
-def delayed_message(self, client, message, time):
-    """sends the pre-constructed message to client after given amount of time (in seconds)"""
-    t = threading.Thread(target=wait_and_send, kwargs={"client": client, "message": message, "time": time})
+def multi_func(*args):
+    return lambda: [f() for f in args]
 
 
 def hint_password(correct, attempt):
@@ -38,7 +32,7 @@ def hint_password(correct, attempt):
     for i in range(len(attempt)):
         if i == len(correct):
             message += ' ' + attempt[i] + 'r'
-            return message.encode()
+            return message
         message += " " + attempt[i]
         if attempt[i] == correct[i]:
             message += 'g'
@@ -55,10 +49,14 @@ def hint_password(correct, attempt):
 class Client(threading.Thread):
 
     def __init__(self, handle, client_socket, accounts):
+        # TODO: clean shit up
         super().__init__(target=handle, args=(self,))
         self.socket = client_socket
         self.accessible = []
         self.attempts = {user: 0 for user in accounts.keys()}
+
+    def clear_attempts(self, username):
+        self.attempts[username] = 0
 
 
 class Account:

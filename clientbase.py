@@ -2,6 +2,10 @@ from tkinter import *
 from constants import *
 
 
+def keep_only(text, chars):
+    return "".join([c for c in text if c in chars])
+
+
 class BaseFrame(Frame):
 
     def __init__(self, master, root, **kwargs):

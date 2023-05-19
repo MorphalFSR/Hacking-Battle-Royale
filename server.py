@@ -50,10 +50,12 @@ class Server(threading.Thread):
                 if username in self.accounts.keys():
                     if username in client.accessible and password == "":
                         client.socket.send(f"{APPROVED} {username}".encode())
+                        client.socket.send(f"{MONEY} {username} {self.accounts[username].money}".encode())
                     elif client.attempts[username] < MAX_ATTEMPTS:
                         if self.accounts[username].password == password:
                             client.accessible.append(username)
                             client.socket.send(f"{APPROVED} {username}".encode())
+                            client.socket.send(f"{MONEY} {username} {self.accounts[username].money}".encode())
                             self.broadcast(f"{HACKED} {username}".encode(), lambda c: c != client)
                         else:
                             print("pass")
@@ -61,14 +63,31 @@ class Server(threading.Thread):
                             client.attempts[username] += 1
                     else:
                         if client.attempts[username] == MAX_ATTEMPTS:
-                            delayed_message(client, f"{UNBLOCKED} {username}", BLOCK_TIME)
-                        client.socket.send(f"{BLOCKED} {username} {BLOCK_TIME}")
+                            print("hu")
+                            unblock_thread = threading.Thread(target=multi_func(lambda: sleep(BLOCK_TIME),
+                                                                                lambda: client.clear_attempts(username),
+                                                                                lambda: client.socket.send(f"{UNBLOCKED} {username}".encode())))
+                            print("ra!")
+                            unblock_thread.start()
+                        client.socket.send(f"{BLOCKED} {username} {BLOCK_TIME}".encode())
+                        client.attempts[username] += 1
                 else:
                     print("user")
                     client.socket.send(f"{ICUSER} {username}".encode())
 
             elif command == LOGOUT:
-                self.broadcast((' '.join(data)).encode(), lambda c: args[0] in c.accessible and c != client)
+                if args[0] in client.accessible:
+                    self.broadcast((' '.join(data)).encode(), lambda c: args[0] in c.accessible and c != client)
+            elif command == TRANSFER:
+                user_from, user_to, money = args
+                money = int(money)
+                if user_from in client.accessible:
+                    if user_to in self.accounts.keys():
+                        if money <= self.accounts[user_from].money:
+                            self.accounts[user_from].money -= money
+                            self.accounts[user_to].money += money
+                            self.broadcast(f"{MONEY} {user_from} {self.accounts[user_from].money}".encode(), lambda c: user_from in c.accessible)
+                            self.broadcast(f"{MONEY} {user_to} {self.accounts[user_to].money}".encode(), lambda c: user_to in c.accessible)
             elif command == QUIT:
                 print(f"Disconnecting from {client.socket}")
                 maintain_connection = False
