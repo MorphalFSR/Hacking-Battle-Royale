@@ -1,6 +1,7 @@
 from clientbase import *
 from tkinter import *
 from constants import *
+from protocol import *
 
 
 class LoginFrame(BaseFrame):
@@ -105,12 +106,15 @@ class InAppFrame(BaseFrame):
         self.sum_entry.pack()
 
         self.transfer_button = Button(self, width=8, height=1, font=INTERACTABLE_FONT, text="Transfer",
-                                      command=lambda: self.root.socket.send(f"{TRANSFER} {self.username} {self.user_entry.get()} {self.sum_entry.get()}".encode()))
+                                      command=lambda: self.root.socket.send(construct_message(TRANSFER,
+                                                                                              self.username,
+                                                                                              self.user_entry.get(),
+                                                                                              self.sum_entry.get())))
         self.transfer_button.pack()
 
         self.logout_button = Button(self, width=20, height=1, font=INTERACTABLE_FONT,
                                     text="Log out of all other devices",
-                                    command=lambda: self.root.socket.send(f"{LOGOUT} {self.username}".encode()))
+                                    command=lambda: self.root.socket.send(construct_message(LOGOUT, self.username)))
         self.logout_button.pack()
 
         self.back_button = Button(self, width=5, height=1, font=INTERACTABLE_FONT, text="Back",

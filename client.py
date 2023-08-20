@@ -3,6 +3,7 @@ from tkinter import *
 import threading
 from frames import *
 from constants import *
+from protocol import *
 
 HOST = '127.0.0.1'
 PORT = 25252
@@ -75,7 +76,7 @@ class ClientApp(Tk):
             return None
 
     def try_login(self, username, password=""):
-        self.socket.send(f"LOGIN {username} {password}".encode())
+        self.socket.send(construct_message(LOGIN, username, password))
 
     def login_successful(self, username):
         print("Logging in.")
@@ -99,48 +100,59 @@ class ClientApp(Tk):
     def listen(self):
         while self.do_listen:
             data = self.socket.recv(1024).decode()
+            print("GOT MESSAGE!")
             if len(data) > 0:
-                split_message = data.split(' ')
-                self.messages.append((split_message[0], split_message[1:]))
-                argss = {c: self.get_response(c) for c in CLIENT_RESPONSE_KEYS}
-                if argss[HACKED]:
-                    print(argss[HACKED])
-                    print(f"Account {argss[HACKED][0]} was hacked!")
-                    self.display_message(f"Account {argss[HACKED][0]} was hacked!")
-                if argss[LOGOUT]:
-                    username = argss[LOGOUT][0]
+                for message in data.split(BREAK):
+                    cmd, args = deconstruct_message(message)
+                    if cmd in CLIENT_RESPONSE_KEYS:
+                        self.messages.append((cmd, args))
+                # dict of arguments passed for each keyword
+                argss = {c: [] for c in CLIENT_RESPONSE_KEYS}
+                print(self.messages)
+                for i in range(len(self.messages)):
+                    message = self.messages.pop(0)
+                    argss[message[0]].append(message[1])
+                print(argss)
+
+                for args in argss[HACKED]:
+                    print(args)
+                    print(f"Account {args[0]} was hacked!")
+                    self.display_message(f"Account {args[0]} was hacked!")
+                for args in argss[LOGOUT]:
+                    username = args[0]
                     print(f"You were logged out of the account: {username}")
                     self.display_message(f"You were logged out of the account: {username}")
                     self.accounts.discard(username)
                     if self.inapp_frame.username == username:
                         self.show_frame(LoginFrame.__name__)
                     self.dropdown_frame.update_buttons(self.accounts)
-                if argss[APPROVED]:
-                    username = argss[APPROVED][0]
+                for args in argss[APPROVED]:
+                    username = args[0]
                     self.login_successful(username)
-                if argss[ICPASS]:
-                    username = argss[ICPASS][0]
-                    hint = argss[ICPASS][1:]
+                for args in argss[ICPASS]:
+                    username = args[0]
+                    hint = args[1:]
+                    print("AAAAAAAAAAAAAAAA")
                     self.login_frame.add_hint(username, hint)
-                if argss[ICUSER]:
-                    username = argss[ICUSER][0]
+                for args in argss[ICUSER]:
+                    username = args[0]
                     self.display_message(f"User {username} does not exist")
-                if argss[BLOCKED]:
-                    username, time = argss[BLOCKED]
+                for args in argss[BLOCKED]:
+                    username, time = args
                     print(f"You have been blocked from logging in to {username} for {time} seconds")
                     self.display_message(f"You have been blocked from logging in to {username} for {time} seconds")
                     self.login_frame.attempts[username] = []
-                if argss[UNBLOCKED]:
-                    username = argss[UNBLOCKED][0]
+                for args in argss[UNBLOCKED]:
+                    username = args
                     print(f"You are no longer blocked from logging in to {username}")
                     self.display_message(f"You are no longer blocked from logging in to {username}")
-                if argss[MONEY]:
-                    username, money = argss[MONEY]
-
+                for args in argss[MONEY]:
+                    username, money = args
                     if self.inapp_frame.username == username:
                         self.inapp_frame.money_var.set(money)
-                print(self.messages)
-                print(argss)
+                for args in argss[HACKING]:
+                    username = args[0]
+                    self.display_message(f"Someone is hacking {username}!")
 
 
 if __name__ == "__main__":
