@@ -1,4 +1,5 @@
 import socket
+import tkinter
 from tkinter import *
 import threading
 from frames import *
@@ -15,6 +16,7 @@ class ClientApp(Tk):
         super().__init__()
 
         self.geometry("{}x{}".format(*WINDOW_SIZE))
+        # self.grid_propagate(False)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((HOST, PORT))
         self.messages = []
@@ -32,29 +34,32 @@ class ClientApp(Tk):
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
 
+        # set up main frames
         self.frames = dict()
-        for F in (LoginFrame, InAppFrame):
+        for F in (LoginFrame, InAppFrame, SignUpFrame):
             frame = F(parent=container, root=self)
-            frame.grid(row=0, column=0, sticky="nsew")
             self.frames[F.__name__] = frame
 
         self.login_frame = self.frames[LoginFrame.__name__]
         self.inapp_frame = self.frames[InAppFrame.__name__]
+        self.signup_frame = self.frames[SignUpFrame.__name__]
 
+        # set up non-main frames
         self.dropdown_frame = DropdownFrame(parent=container, root=self, usernames=self.accounts)
-        self.dropdown_frame.grid(row=0, column=0, sticky="nsew")
-        self.dropdown_frame.place(x=0, y=0, anchor=NW)
+        self.dropdown_frame.grid(row=0, column=0, sticky=NW)
 
         self.message_frame = MessagesFrame(parent=container, root=self)
-        self.message_frame.grid(row=0, column=0, sticky="nsew")
-        self.message_frame.place(x=WINDOW_SIZE[0], y=0, anchor=NE)
+        self.message_frame.grid(row=0, column=0, sticky=NE)
 
         self.top_widgets.append(self.message_frame)
         self.top_widgets.append(self.dropdown_frame)
 
+        # set up quit message
         self.protocol(QUIT_EVENT, self.on_close)
 
-        self.show_frame(LoginFrame.__name__)
+        # show initial frame
+        print("ADASD")
+        self.show_frame(SignUpFrame.__name__)
 
     def show_frame(self, name):
         self.frames[name].load()
@@ -78,9 +83,11 @@ class ClientApp(Tk):
     def try_login(self, username, password=""):
         self.socket.send(construct_message(LOGIN, username, password))
 
+    def create_account(self, username, password):
+        self.socket.send(construct_message(CREATE, username, password))
+
     def login_successful(self, username):
-        print("Logging in.")
-        self.display_message("Logging in.")
+        self.display_message(f"Logging in to account {username}.")
         self.accounts.add(username)
         self.dropdown_frame.update_buttons(self.accounts)
         self.frames[InAppFrame.__name__].set_user(username)
@@ -101,6 +108,7 @@ class ClientApp(Tk):
         while self.do_listen:
             data = self.socket.recv(1024).decode()
             print("GOT MESSAGE!")
+            print(data)
             if len(data) > 0:
                 for message in data.split(BREAK):
                     cmd, args = deconstruct_message(message)
@@ -143,7 +151,7 @@ class ClientApp(Tk):
                     self.display_message(f"You have been blocked from logging in to {username} for {time} seconds")
                     self.login_frame.attempts[username] = []
                 for args in argss[UNBLOCKED]:
-                    username = args
+                    username, = args
                     print(f"You are no longer blocked from logging in to {username}")
                     self.display_message(f"You are no longer blocked from logging in to {username}")
                 for args in argss[MONEY]:

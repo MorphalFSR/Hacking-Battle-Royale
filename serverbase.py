@@ -56,9 +56,22 @@ class Client(threading.Thread):
         self.socket = client_socket
         self.accessible = []
         self.attempts = {user: 0 for user in accounts.keys()}
+        self.block_times = {user: None for user in accounts.keys()}
 
     def clear_attempts(self, username):
         self.attempts[username] = 0
+
+    def inc_attempts(self, username):
+        if username in self.attempts.keys():
+            self.attempts[username] += 1
+        else:
+            self.attempts[username] = 1
+
+    def get_attempts(self, username):
+        if username in self.attempts.keys():
+            return self.attempts[username]
+        else:
+            return 0
 
 
 class Account:

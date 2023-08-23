@@ -4,7 +4,7 @@ from constants import *
 from protocol import *
 
 
-class LoginFrame(BaseFrame):
+class LoginFrame(MainFrame):
 
     def __init__(self, parent, root):
         super().__init__(master=parent, root=root)
@@ -81,7 +81,7 @@ class DropdownFrame(BaseFrame):
             button.pack(side=TOP)
 
 
-class InAppFrame(BaseFrame):
+class InAppFrame(MainFrame):
 
     def __init__(self, parent, root):
         super().__init__(master=parent, root=root)
@@ -137,3 +137,41 @@ class MessagesFrame(BaseFrame):
     def add_message(self, message):
         self.text_box.config(height=len(self.display_text.get().split("\n")) + 1)
         self.display_text.set(self.display_text.get() + "\n" + message)
+
+
+class SignUpFrame(MainFrame):
+
+    def __init__(self, parent, root):
+        super().__init__(master=parent, root=root)
+
+        self.attempts = dict()
+
+        pass_var = StringVar(root)
+        pass_var.trace('w', lambda *args: pass_var.set(pass_var.get().replace(" ", "")))
+        self.password_box = Entry(self, textvariable=pass_var, width=25, bg=WHITE, font=INTERACTABLE_FONT)
+        self.password_box.place(relx=0.5, rely=0.5, anchor=CENTER)
+        self.entries.append(self.password_box)
+
+        self.update_idletasks()
+
+        user_var = StringVar(root)
+        self.username_box = Entry(self, textvariable=user_var, width=25, bg=WHITE, font=INTERACTABLE_FONT)
+        self.username_box.place(relx=0.5, rely=0.5, y=-self.password_box.winfo_height() - WIDGET_SPACE, anchor=CENTER)
+        self.entries.append(self.username_box)
+
+        self.password_box.bind('<Return>', lambda event: self.create_account(username=self.username_box.get(),
+                                                                             password=self.password_box.get()))
+
+        self.sign_up_button = Button(self, width=8, height=1, font=INTERACTABLE_FONT, text="Sign Up",
+                                     command=lambda: self.create_account(username=self.username_box.get(),
+                                                                         password=self.password_box.get()))
+        self.sign_up_button.place(relx=0.5, rely=0.5, y=0.5 * self.password_box.winfo_height() + WIDGET_SPACE, anchor=N)
+
+    def create_account(self, username, password):
+        self.root.create_account(username, password)
+
+    def load(self):
+        self.attempts = {user: [] for user in self.attempts.keys()}
+        super().load()
+
+# class PopUpFrame(BaseFrame):

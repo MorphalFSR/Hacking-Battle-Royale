@@ -27,6 +27,14 @@ class BaseFrame(Frame):
             del(self.temporaries[0])
 
 
+class MainFrame(BaseFrame):
+
+    def __init__(self, master, root, **kwargs):
+        super().__init__(master=master, root=root, **kwargs)
+        self.grid(row=0, column=0, sticky=NSEW)
+        # self.place(relx=0.5, rely=0.5, anchor=CENTER)
+
+
 class AccountButton(Button):
 
     def __init__(self, master, root, username, image=None):
