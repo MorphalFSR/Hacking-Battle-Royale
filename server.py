@@ -1,5 +1,3 @@
-# TODO: add logged in users for each client + log out message when hacked
-
 import socket
 import threading
 from constants import *
@@ -14,18 +12,20 @@ class Server(threading.Thread):
         super().__init__(target=self.handle_server)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.clients = []
-        self.accounts = {username: Account(username, PASSWORDS[username]) for username in PASSWORDS.keys()}
+        self.lobbies = []
         self.start()
-        # while True:
-        #     username = input("Enter username: ")
-        #     password = input("Enter password: ")
-        #     self.accounts[username].password = password
+        self.lobby_handler = threading.Thread(target=self.handle_lobbies)
+        self.lobby_handler.start()
 
-    def broadcast(self, message, condition=None):
+    def broadcast(self, message, clients=None, condition=None):
         condition = condition if condition else lambda x: True
-        for client in self.clients:
+        clients = clients if clients else self.clients
+        for client in clients:
             if condition(client):
-                client.socket.send(message)
+                try:
+                    client.socket.send(message)
+                except ConnectionError:
+                    pass
 
     def handle_server(self):
         with self.socket:
@@ -34,91 +34,203 @@ class Server(threading.Thread):
             while True:
                 client_socket, address = self.socket.accept()
                 print(f"Connected to {client_socket}")
-                new_client = Client(handle=self.handle_client, client_socket=client_socket, accounts=self.accounts)
+                new_client = Client(handle=self.handle_client, client_socket=client_socket)
                 self.clients.append(new_client)
                 new_client.start()
 
+    def handle_lobbies(self):
+        while True:
+            for i in range(len(self.lobbies) - 1, -1, -1):
+                lobby = self.lobbies[-i - 1]
+                if len(lobby.clients) == 0 and lobby.is_open:
+                    self.broadcast(construct_message(REMLOBBIES, lobby.name), clients=self.clients)
+                    self.lobbies.pop(i)
+
     def handle_client(self, client):
         maintain_connection = True
+        pending_lobby = None
         try:
             while maintain_connection:
                 data = client.socket.recv(1024).decode().split(BREAK)
+                print("Got Message", *data)
                 data = [message for message in data if len(message) > 0]
 
                 for message in data:
                     command, args = deconstruct_message(message)
 
-                    # user trying to log in to an account
-                    if command == LOGIN:
-                        username, password = args
-                        print(username, password)
-                        if username in self.accounts.keys():
-                            if username in client.accessible and password == "":
-                                client.socket.send(construct_message(APPROVED, username))
-                                client.socket.send(construct_message(MONEY, username, self.accounts[username].money))
-                            elif client.get_attempts(username) < MAX_ATTEMPTS:
-                                if self.accounts[username].password == password:
-                                    client.accessible.append(username)
-                                    client.socket.send(construct_message(APPROVED, username))
-                                    client.socket.send(construct_message(MONEY, username, self.accounts[username].money))
-                                    self.broadcast(construct_message(HACKED, username), lambda c: c != client)
+                    try:
+
+                        # user trying to log in to an account
+                        if command == LOGIN:
+
+                            if client.lobby:
+                                username, password = args
+
+                                if username in client.lobby.accounts.keys():
+                                    if username in client.accessible and password == "":
+                                        client.socket.send(construct_message(APPROVED, username))
+                                        client.socket.send(construct_message(MONEY, username, client.lobby.accounts[username].money))
+                                    elif client.get_attempts(username) < MAX_ATTEMPTS:
+                                        if client.lobby.accounts[username].password == password:
+                                            client.accessible.append(username)
+                                            client.socket.send(construct_message(APPROVED, username))
+                                            client.socket.send(construct_message(MONEY, username, client.lobby.accounts[username].money))
+                                            self.broadcast(construct_message(HACKED, username), clients=client.lobby.clients, condition=lambda c: c != client)
+                                        else:
+                                            print("pass")
+                                            client.socket.send(construct_message(ICPASS, username, hint_password(client.lobby.accounts[username].password, password)))
+                                            client.inc_attempts(username)
+                                            self.broadcast(f"{HACKING} {username}".encode(),
+                                                           clients=client.lobby.clients, condition=lambda c: c != client and username in c.accessible)
+                                    else:
+                                        if client.attempts[username] == MAX_ATTEMPTS:
+                                            client.block_times[username] = datetime.datetime.now()
+                                            unblock_thread = threading.Thread(target=multi_func(lambda: sleep(BLOCK_TIME),
+                                                                                                lambda: client.clear_attempts(username),
+                                                                                                lambda: client.socket.send(construct_message(UNBLOCKED, username))))
+                                            unblock_thread.start()
+                                        client.socket.send(construct_message(BLOCKED, username, BLOCK_TIME - (datetime.datetime.now() - client.block_times[username]).seconds))
+                                        client.attempts[username] += 1
                                 else:
-                                    print("pass")
-                                    client.socket.send(construct_message(ICPASS, username, hint_password(self.accounts[username].password, password)))
-                                    client.inc_attempts(username)
-                                    self.broadcast(f"{HACKING} {username}".encode(),
-                                                   lambda c: c != client and username in c.accessible)
-                            else:
-                                if client.attempts[username] == MAX_ATTEMPTS:
-                                    client.block_times[username] = datetime.datetime.now()
-                                    unblock_thread = threading.Thread(target=multi_func(lambda: sleep(BLOCK_TIME),
-                                                                                        lambda: client.clear_attempts(username),
-                                                                                        lambda: client.socket.send(construct_message(UNBLOCKED, username))))
-                                    unblock_thread.start()
-                                client.socket.send(construct_message(BLOCKED, username, BLOCK_TIME - (datetime.datetime.now() - client.block_times[username]).seconds))
-                                client.attempts[username] += 1
-                        else:
-                            print("user")
-                            client.socket.send(construct_message(ICUSER, username))
+                                    print("user")
+                                    client.socket.send(construct_message(ICUSER, username))
 
-                    # user is logging out an account form other devices
-                    elif command == LOGOUT:
-                        if args[0] in client.accessible:
-                            self.broadcast((' '.join(data)).encode(), lambda c: args[0] in c.accessible and c != client)
+                        # user is logging out an account form other devices
+                        if command == LOGOUT:
+                            if client.lobby:
+                                username, = args
+                                print(username)
+                                for c in client.lobby.clients:
+                                    if username in c.accessible and c is not client:
+                                        c.accessible.remove(username)
+                                        c.socket.send(construct_message(LOGOUT, username))
+                                        if len(c.accessible) == 0:
+                                            c.socket.send(construct_message(LOSE))
 
-                    # user is transferring money
-                    elif command == TRANSFER:
-                        user_from, user_to, money = args
-                        money = int(money)
-                        if user_from in client.accessible:
-                            if user_to in self.accounts.keys():
-                                if money <= self.accounts[user_from].money:
-                                    self.accounts[user_from].money -= money
-                                    self.accounts[user_to].money += money
-                                    self.broadcast(f"{MONEY} {user_from} {self.accounts[user_from].money}".encode(), lambda c: user_from in c.accessible)
-                                    self.broadcast(f"{MONEY} {user_to} {self.accounts[user_to].money}".encode(), lambda c: user_to in c.accessible)
+                        # user is transferring money
+                        if command == TRANSFER:
+                            if client.lobby:
+                                user_from, user_to, money = args
+                                if money.isnumeric():
+                                    money = int(money)
+                                    if user_from in client.accessible:
+                                        if user_to in client.lobby.accounts.keys():
+                                            if money <= client.lobby.accounts[user_from].money:
+                                                client.lobby.accounts[user_from].money -= money
+                                                client.lobby.accounts[user_to].money += money
+                                                self.broadcast(f"{MONEY} {user_from} {client.lobby.accounts[user_from].money}".encode(), clients=client.lobby.clients, condition=lambda c: user_from in c.accessible)
+                                                self.broadcast(f"{MONEY} {user_to} {client.lobby.accounts[user_to].money}".encode(), clients=client.lobby.clients, condition=lambda c: user_to in c.accessible)
 
-                    # user is creating an account
-                    elif command == CREATE:
-                        username, password = args
-                        if username not in self.accounts.keys():
-                            self.accounts[username] = Account(username, password)
-                            client.socket.send(construct_message(APPROVED, username))
-                            client.accessible.append(username)
-                        else:
-                            client.socket.send(construct_message(TAKEN, username))
+                        # user is creating an account
+                        if command == CREATEACCOUNT:
+                            if pending_lobby:
+                                username, password = args
+                                if check_user_pass(username, password, pending_lobby, client):
+                                    if username not in pending_lobby.accounts.keys():
 
-                    # user is disconnecting
-                    elif command == QUIT:
-                        print(f"Disconnecting from {client.socket}")
-                        maintain_connection = False
+                                        if pending_lobby.add_client(client):
+                                            client.socket.send(construct_message(ADMIN, pending_lobby.name))
+                                        client.lobby = pending_lobby
+                                        client.socket.send(construct_message(JOINED2, client.lobby.name))
+                                        self.broadcast(construct_message(LOBBIES, pending_lobby.name, len(pending_lobby.clients),
+                                                                         pending_lobby.max_clients),
+                                                       clients=self.clients, condition=lambda c: c.lobby is None)
+                                        pending_lobby.open()
 
-            client.socket.close()
+                                        client.set_name(username)
+                                        client.lobby.accounts[username] = Account(username, password)
+                                        client.accessible.append(username)
+
+                                        for c in client.lobby.clients:
+                                            client.socket.send(construct_message(LOBBYDATA, c.original_name, '-', *c.accessible))
+                                        self.broadcast(construct_message(LOBBYDATA, username, '-', username), client.lobby.clients)
+
+                                        pending_lobby = None
+                                    else:
+                                        client.socket.send(construct_message(TAKEN, username))
+
+                        # user is requesting a list of lobbies
+                        if command == LOBBIES:
+                            client.socket.send(construct_message(LOBBIES, *[v for lobby in self.lobbies for v in
+                                                                            (lobby.name, len(lobby.clients), lobby.max_clients)
+                                                                            if not lobby.started]))
+
+                        # user is requesting to join a lobby
+                        if command == JOIN:
+                            if client.lobby is None:
+                                name, = args
+                                for l in self.lobbies:
+                                    if l.name == name:
+                                        pending_lobby = l
+
+                                if pending_lobby:
+                                    if len(pending_lobby.clients) < pending_lobby.max_clients and client.lobby is None:
+                                        client.socket.send(construct_message(JOINED1, pending_lobby.name))
+
+                                    else:
+                                        client.socket.send(construct_message(LOBBIES, *[v for lobby in self.lobbies for v in
+                                                                                        [lobby.name, len(lobby.clients),
+                                                                                         lobby.max_clients]]))
+                                else:
+                                    client.socket.send(construct_message(LOBBIES, *[v for lobby in self.lobbies for v in
+                                                                                    [lobby.name, len(lobby.clients),
+                                                                                     lobby.max_clients]]))
+
+                        if command == CREATELOBBY:
+                            if client.lobby is None:
+                                name, = args
+                                if name not in [l.name for l in self.lobbies]:
+                                    pending_lobby = Lobby(name)
+                                    self.lobbies.append(pending_lobby)
+                                    client.socket.send(construct_message(JOINED1, name))
+
+                        if command == EXIT:
+                            if client.lobby:
+                                self.broadcast(construct_message(EXITED, client.original_name), clients=client.lobby.clients)
+                                if client.lobby.remove_client(client):
+                                    client.lobby.clients[0].socket.send(construct_message(ADMIN, client.lobby.name))
+                                client.exit_lobby()
+                                pending_lobby = None
+
+                        if command == START:
+                            if client.lobby:
+                                if client is client.lobby.admin:
+                                    client.lobby.start()
+                                    self.broadcast(construct_message(REMLOBBIES, client.lobby.name), clients=self.clients, condition=lambda c: c.lobby is not client.lobby)
+                                    self.broadcast(construct_message(START, client.lobby.name), clients=client.lobby.clients)
+                                    for c in client.lobby.clients:
+                                        c.socket.send(construct_message(APPROVED, c.original_name))
+
+                        if command == CHANGEPASS:
+                            if client.lobby:
+                                username, password, repeat = args
+                                if username in client.accessible:
+                                    if password == repeat:
+                                        if check_user_pass(username, password, client.lobby):
+                                            client.lobby.accounts[username].password = password
+
+                        # user is disconnecting
+                        if command == QUIT:
+                            if client.lobby:
+                                self.broadcast(construct_message(EXITED, client.original_name), clients=client.lobby.clients)
+                                if client.lobby.remove_client(client):
+                                    client.lobby.clients[0].socket.send(construct_message(ADMIN, client.lobby.name))
+                                client.lobby = None
+
+                            print(f"Disconnecting from {client.socket}")
+                            maintain_connection = False
+                    except ValueError:
+                        print("Invalid arguments for " + command)
 
         except ConnectionError as e:
             print(f"Client {client} disconnected unexpectedly.")
         finally:
+            if client.lobby:
+                client.lobby.clients.remove(client)
+                self.broadcast(construct_message(LOBBIES, client.lobby.name, len(client.lobby.clients), client.lobby.max_clients), condition=lambda c: c.lobby is None)
+                self.broadcast(construct_message(EXITED, client.original_name), clients=client.lobby.clients, condition=lambda c: c is not client)
             self.clients.remove(client)
+            client.socket.close()
 
 
 if __name__ == "__main__":

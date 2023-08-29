@@ -2,6 +2,10 @@ from tkinter import *
 from constants import *
 
 
+def multi_func(*args):
+    return lambda: [f() for f in args]
+
+
 def keep_only(text, chars):
     return "".join([c for c in text if c in chars])
 
@@ -32,7 +36,6 @@ class MainFrame(BaseFrame):
     def __init__(self, master, root, **kwargs):
         super().__init__(master=master, root=root, **kwargs)
         self.grid(row=0, column=0, sticky=NSEW)
-        # self.place(relx=0.5, rely=0.5, anchor=CENTER)
 
 
 class AccountButton(Button):

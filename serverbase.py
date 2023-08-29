@@ -2,17 +2,53 @@ import socket
 import threading
 from constants import *
 from time import sleep
+from protocol import *
 
 IP = '0.0.0.0'
 PORT = 25252
-N_PLAYERS = 8
 INIT_MONEY = 500
 MAX_ATTEMPTS = 5
 BLOCK_TIME = 10
 
+MINUSERLEN = 4
+MAXUSERLEN = 8
+ALLOWED_IN_USER = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
+
 PASSWORDS = {"a": "pass12345",
              "b": "trollers147",
              "c": "69Pog69"}
+
+
+def user_is_valid(username, minlen, maxlen, allowed_chars):
+    if not (minlen <= len(username) <= maxlen):
+        return False, f"Username must be between {minlen} and {maxlen} characters."
+    if not all([c in allowed_chars for c in username]):
+        return False, f"Only the characters: " + ','.join(allowed_chars) + " are allowed in the username."
+    return True, None
+
+
+def pass_is_valid(password, minlen, maxlen, allowed_chars):
+    if not (minlen <= len(password) <= maxlen):
+        return False, f"Password must be between {minlen} and {maxlen} characters."
+    if not all([c in allowed_chars for c in password]):
+        return False, f"Only the characters: " + ','.join(allowed_chars) + " are allowed in the password."
+    return True, None
+
+
+def check_user_pass(username, password, lobby, client=None):
+    """Check if given username and password are valid. if not, send respective message.
+    Returns True if both valid, otherwise return False."""
+    isvalid, message = user_is_valid(username, MINUSERLEN, MAXUSERLEN, ALLOWED_IN_USER)
+    if not isvalid:
+        if client:
+            client.socket.send(construct_message(IVUSER, message))
+        return False
+    isvalid, message = pass_is_valid(password, lobby.minpasslen, lobby.maxpasslen, lobby.allowed_in_pass)
+    if not isvalid:
+        if client:
+            client.socket.send(construct_message(IVPASS, message))
+        return False
+    return True
 
 
 def multi_func(*args):
@@ -32,9 +68,9 @@ def hint_password(correct, attempt):
     message = ""
     for i in range(len(attempt)):
         if i == len(correct):
-            message += ' ' + attempt[i] + 'r'
+            message += SPACE + attempt[i] + 'r'
             return message
-        message += " " + attempt[i]
+        message += SPACE + attempt[i]
         if attempt[i] == correct[i]:
             message += 'g'
         else:
@@ -43,20 +79,30 @@ def hint_password(correct, attempt):
             if abs(ord(attempt[i]) - ord(correct[i])) == 1:
                 message += 'p'
     if len(attempt) < len(correct):
-        message += " \0r"
+        message += SPACE + "\0r"
     print(message)
     return message[1:]
 
 
+def get_lobby_data_message(lobby):
+    data = []
+    for client in lobby.clients:
+        data.append(client.original_name)
+        data.append('-')
+        data.extend(client.accessible)
+    return construct_message(LOBBYDATA, *data)
+
+
 class Client(threading.Thread):
 
-    def __init__(self, handle, client_socket, accounts):
-        # TODO: clean shit up
+    def __init__(self, handle, client_socket):
         super().__init__(target=handle, args=(self,))
+        self.original_name = None
         self.socket = client_socket
+        self.lobby = None
         self.accessible = []
-        self.attempts = {user: 0 for user in accounts.keys()}
-        self.block_times = {user: None for user in accounts.keys()}
+        self.attempts = dict()
+        self.block_times = dict()
 
     def clear_attempts(self, username):
         self.attempts[username] = 0
@@ -73,6 +119,16 @@ class Client(threading.Thread):
         else:
             return 0
 
+    def set_name(self, name):
+        self.original_name = name
+
+    def exit_lobby(self):
+        self.original_name = None
+        self.lobby = None
+        self.accessible = []
+        self.attempts = dict()
+        self.block_times = dict()
+
 
 class Account:
 
@@ -80,3 +136,42 @@ class Account:
         self.username = username
         self.password = password
         self.money = INIT_MONEY
+
+
+class Lobby:
+
+    def __init__(self, name):
+        self.name = name
+        self.is_open = False
+        self.started = False
+        self.game_started = False
+        self.clients = []
+        self.max_clients = N_PLAYERS
+        self.accounts = dict()
+        self.minpasslen = 8
+        self.maxpasslen = 12
+        self.allowed_in_pass = '1234567890'
+
+        self.admin = None
+
+    def add_client(self, client):
+        self.clients.append(client)
+        if len(self.clients) == 1:
+            self.admin = client
+            return True
+        return False
+
+    def remove_client(self, client):
+        self.clients.remove(client)
+        if not self.started:
+            self.accounts.pop(client.original_name)
+        if len(self.clients) == 1:
+            self.admin = self.clients[0]
+            return True
+        return False
+
+    def open(self):
+        self.is_open = True
+
+    def start(self):
+        self.started = True
