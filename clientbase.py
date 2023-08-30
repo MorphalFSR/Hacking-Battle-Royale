@@ -27,8 +27,9 @@ class BaseFrame(Frame):
 
     def clear_screen(self):
         for i in range(len(self.temporaries)):
+            self.temporaries[0].grid_remove()
             self.temporaries[0].destroy()
-            del(self.temporaries[0])
+            self.temporaries.pop(0)
 
 
 class MainFrame(BaseFrame):
@@ -36,6 +37,18 @@ class MainFrame(BaseFrame):
     def __init__(self, master, root, **kwargs):
         super().__init__(master=master, root=root, **kwargs)
         self.grid(row=0, column=0, sticky=NSEW)
+        self.assets = []
+
+    def construct_window(self):
+        for i in range(len(self.assets)):
+            self.rowconfigure(i + 1, weight=0)
+            self.assets[i].grid(row=i + 1, column=1, sticky=N, pady=PADY)
+
+        self.rowconfigure(0, weight=5)
+        self.rowconfigure(len(self.assets) + 1, weight=5)
+
+        for i in range(3):
+            self.columnconfigure(i, weight=1)
 
 
 class AccountButton(Button):

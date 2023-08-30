@@ -11,18 +11,16 @@ class LoginFrame(MainFrame):
 
         self.attempts = dict()
 
+        self.password_label = Label(self, text="Enter Password:", font=INTERACTABLE_FONT)
+
         pass_var = StringVar(root)
         pass_var.trace('w', lambda *args: pass_var.set(pass_var.get().replace(" ", "")))
         self.password_box = Entry(self, textvariable=pass_var, width=25, bg=WHITE, font=INTERACTABLE_FONT)
-        self.password_box.place(relx=0.5, rely=0.5, anchor=CENTER)
         self.entries.append(self.password_box)
 
-        self.update_idletasks()
+        self.username_label = Label(self, text="Enter Username:", font=INTERACTABLE_FONT)
 
-        user_var = StringVar(root)
-        user_var.trace('w', lambda *args: self.display_hints(user_var.get()))
-        self.username_box = Entry(self, textvariable=user_var, width=25, bg=WHITE, font=INTERACTABLE_FONT)
-        self.username_box.place(relx=0.5, rely=0.5, y=-self.password_box.winfo_height() - WIDGET_SPACE, anchor=CENTER)
+        self.username_box = Entry(self, width=25, bg=WHITE, font=INTERACTABLE_FONT)
         self.entries.append(self.username_box)
 
         self.password_box.bind('<Return>', lambda event: self.try_login(username=self.username_box.get(),
@@ -31,13 +29,20 @@ class LoginFrame(MainFrame):
         self.sign_in_button = Button(self, width=8, height=1, font=INTERACTABLE_FONT, text="Sign in",
                                      command=lambda: self.try_login(username=self.username_box.get(),
                                                                     password=self.password_box.get()))
-        self.sign_in_button.place(relx=0.5, rely=0.5, y=0.5 * self.password_box.winfo_height() + WIDGET_SPACE, anchor=N)
 
         self.logo_label = Label(self, image=self.root.logo)
         self.logo_label.place(relx=0.5, rely=0.5, y=-1.5 * self.password_box.winfo_height() - 2 * WIDGET_SPACE,
                               anchor=S)
 
-    # TODO: remove this
+        self.info_button = Button(self, text="Game Info", font=INTERACTABLE_FONT, command=lambda: self.root.show_frame(MetaFrame.__name__))
+
+        self.hints_container = BaseFrame(self, root)
+
+        self.assets = [self.logo_label, self.username_label, self.username_box, self.password_label, self.password_box,
+                       self. sign_in_button, self.info_button, self.hints_container]
+
+        self.construct_window()
+
     def try_login(self, username, password):
         self.root.try_login(username, password)
 
@@ -48,19 +53,21 @@ class LoginFrame(MainFrame):
         self.display_hints(username)
 
     def display_hints(self, username):
-        self.clear_screen()
+        self.hints_container.clear_screen()
         if username in self.attempts.keys():
             for k in range(len(self.attempts[username])):
                 attempt = self.attempts[username][k]
                 for i in range(len(attempt)):
                     char = attempt[i][0]
                     colors = [COLORS[c] for c in attempt[i][1:]]
-                    char_box = Label(self, bg=WHITE if len(colors) == 0 else colors[0], font=INTERACTABLE_FONT, height=1,
+                    print(char)
+                    char_box = Label(self.hints_container, bg=WHITE if len(colors) == 0 else colors[0], font=INTERACTABLE_FONT, height=1,
                                      width=1, text=char)
-                    char_box.place(x=self.password_box.winfo_x() + i * LETTER_WIDTH,
-                                   y=self.sign_in_button.winfo_y() + self.sign_in_button.winfo_height() + WIDGET_SPACE + k * (
-                                           LETTER_HEIGHT + WIDGET_SPACE),
-                                   anchor=NW)
+
+                    char_box.grid(row=k, column=i, pady=PADY)
+                    self.hints_container.columnconfigure(i, weight=0)
+                    self.hints_container.rowconfigure(k, weight=0)
+
                     self.temporaries.append(char_box)
 
     def load(self):
@@ -96,21 +103,6 @@ class InAppFrame(MainFrame):
 
         self.username_label = Label(self, height=1, font=INTERACTABLE_FONT)
 
-        self.money_var = IntVar(self)
-        self.money_label = Label(self, height=1, width=5, textvariable=self.money_var, font=INTERACTABLE_FONT)
-
-        self.user_query_label = Label(self, height=1, width=12, font=INTERACTABLE_FONT, text="Transfer to:")
-        self.user_entry = Entry(self, width=10, font=INTERACTABLE_FONT)
-
-        self.sum_query_label = Label(self, height=1, width=9, font=INTERACTABLE_FONT, text="How much:")
-        self.sum_entry = Entry(self, width=5, font=INTERACTABLE_FONT)
-
-        self.transfer_button = Button(self, font=INTERACTABLE_FONT, text="Transfer",
-                                      command=lambda: self.root.socket.send(construct_message(TRANSFER,
-                                                                                              self.username,
-                                                                                              self.user_entry.get(),
-                                                                                              self.sum_entry.get())))
-
         self.logout_button = Button(self, font=INTERACTABLE_FONT,
                                     text="Log out of all other devices",
                                     command=lambda: self.root.socket.send(construct_message(LOGOUT, self.username)))
@@ -122,20 +114,10 @@ class InAppFrame(MainFrame):
         self.back_button = Button(self, width=5, height=1, font=INTERACTABLE_FONT, text="Back",
                                   command=lambda: self.root.show_frame(LoginFrame.__name__))
 
-        self.assets = [(self.logo_label, 0), (self.username_label, 0), (self.money_label, 0),
-                       (self.user_query_label, 0), (self.user_entry, 0), (self.sum_query_label, 0), (self.sum_entry, 1),
-                       (self.transfer_button, 1), (self.logout_button, 1), (self.change_password_button, 1),
-                       (self.back_button, 1)]
+        self.assets = [self.logo_label, self.username_label, self.logout_button, self.change_password_button,
+                       self.back_button]
 
-        for i in range(len(self.assets)):
-            self.rowconfigure(i+1, weight=self.assets[i][1])
-            self.assets[i][0].grid(row=i+1, column=1, sticky=N)
-
-        self.rowconfigure(0, weight=5)
-        self.rowconfigure(len(self.assets) + 1, weight=5)
-
-        for i in range(3):
-            self.columnconfigure(i, weight=1)
+        self.construct_window()
 
     def set_user(self, username):
         self.username = username
@@ -162,38 +144,31 @@ class SignUpFrame(MainFrame):
 
         self.attempts = dict()
 
-        pass_var = StringVar(root)
-        pass_var.trace('w', lambda *args: pass_var.set(pass_var.get().replace(" ", "")))
-        self.password_box = Entry(self, textvariable=pass_var, width=25, bg=WHITE, font=INTERACTABLE_FONT)
-        self.password_box.place(relx=0.5, rely=0.5, anchor=CENTER)
-        self.entries.append(self.password_box)
+        self.username_label = Label(self, text="Enter Username:", font=INTERACTABLE_FONT)
 
-        self.update_idletasks()
-
-        user_var = StringVar(root)
-        self.username_box = Entry(self, textvariable=user_var, width=25, bg=WHITE, font=INTERACTABLE_FONT)
-        self.username_box.place(relx=0.5, rely=0.5, y=-self.password_box.winfo_height() - WIDGET_SPACE, anchor=CENTER)
+        self.username_box = Entry(self, width=25, bg=WHITE, font=INTERACTABLE_FONT)
         self.entries.append(self.username_box)
 
-        self.password_box.bind('<Return>', lambda event: self.create_account(username=self.username_box.get(),
-                                                                             password=self.password_box.get()))
+        self.password_label = Label(self, text="Enter Password:", font=INTERACTABLE_FONT)
+
+        self.password_box = Entry(self, width=25, bg=WHITE, font=INTERACTABLE_FONT)
+        self.entries.append(self.password_box)
 
         self.sign_up_button = Button(self, width=8, height=1, font=INTERACTABLE_FONT, text="Sign Up",
                                      command=lambda: self.create_account(username=self.username_box.get(),
                                                                          password=self.password_box.get()))
-        self.sign_up_button.place(relx=0.5, rely=0.5, y=0.5 * self.password_box.winfo_height() + WIDGET_SPACE, anchor=N)
-
-        self.update_idletasks()
 
         self.back_button = Button(self, font=INTERACTABLE_FONT, text="Back",
                                   command=lambda: self.root.show_frame(LobbyFrame.__name__))
-        self.back_button.place(relx=0.5, rely=0.5, y=0.5 * self.password_box.winfo_height() + self.sign_up_button.winfo_height() + 2 * WIDGET_SPACE, anchor=N)
 
         self.invalid_label = Label(self, fg="#ff0000")
-        self.invalid_label.place(relx=0.5, rely=0.5, y=0.5 * self.password_box.winfo_height() + 2*self.sign_up_button.winfo_height() + 3 * WIDGET_SPACE, anchor=N)
 
         self.logo_label = Label(self, image=self.root.logo)
-        self.logo_label.place(relx=0.5, rely=0.5, y=-1.5*self.password_box.winfo_height() - 2*WIDGET_SPACE, anchor=S)
+
+        self.assets = [self.logo_label, self.username_label, self.username_box, self.password_label, self.password_box,
+                       self.sign_up_button, self.back_button, self.invalid_label]
+
+        self.construct_window()
 
     def create_account(self, username, password):
         self.root.create_account(username, password)
@@ -202,6 +177,7 @@ class SignUpFrame(MainFrame):
         self.invalid_label.config(text=message)
 
     def load(self):
+        self.invalid_label.config(text='')
         self.attempts = {user: [] for user in self.attempts.keys()}
         super().load()
 
@@ -321,7 +297,7 @@ class ChangePasswordFrame(MainFrame):
         self.pass_label = Label(self, font=INTERACTABLE_FONT, text="Enter new password:")
         self.pass_entry = Entry(self, width=10, font=INTERACTABLE_FONT)
 
-        self.repeat_label = Label(self, font=INTERACTABLE_FONT, text="Enter new password:")
+        self.repeat_label = Label(self, font=INTERACTABLE_FONT, text="Repeat password:")
         self.repeat_entry = Entry(self, width=10, font=INTERACTABLE_FONT)
 
         self.change_button = Button(self, font=INTERACTABLE_FONT, text="Set New Password", command=self.change_password)
@@ -330,25 +306,26 @@ class ChangePasswordFrame(MainFrame):
                                   command=multi_func(lambda: self.root.frames[InAppFrame.__name__].set_user(self.username),
                                                      lambda: self.root.show_frame(InAppFrame.__name__)))
 
+        self.message_label = Label(self, font=MESSAGE_FONT)
+
         self.assets = [self.logo_label, self.username_label, self.pass_label, self.pass_entry,
-                       self.repeat_label, self.repeat_entry, self.change_button, self.back_button]
+                       self.repeat_label, self.repeat_entry, self.change_button, self.back_button, self.message_label]
 
-        for i in range(len(self.assets)):
-            self.rowconfigure(i + 1, weight=0)
-            self.assets[i].grid(row=i + 1, column=1, sticky=N, pady=PADY)
-
-        self.rowconfigure(0, weight=5)
-        self.rowconfigure(len(self.assets) + 1, weight=5)
-
-        for i in range(3):
-            self.columnconfigure(i, weight=1)
+        self.construct_window()
 
     def set_user(self, username):
         self.username = username
         self.username_label.config(text="Signed in to account: " + self.username)
 
+    def display_message(self, message, color="#ff0000"):
+        self.message_label.config(text=message, fg=color)
+
     def change_password(self):
         self.root.change_password(self.username, self.pass_entry.get(), self.repeat_entry.get())
+
+    def load(self):
+        self.message_label.config(text='')
+        super().load()
 
 
 class MetaFrame(MainFrame):
@@ -356,7 +333,7 @@ class MetaFrame(MainFrame):
     def __init__(self, parent, root):
         super().__init__(master=parent, root=root)
 
-        self.state = 0 # 0 for pre-game, 1 for during game, 2 for loss
+        self.state = 0  # 0 for pre-game, 1 for during game, 2 for loss
 
         self.title_label = Label(self, font=TITLE_FONT)
         self.title_label.grid(row=0, column=0)
@@ -365,11 +342,12 @@ class MetaFrame(MainFrame):
         self.exit_button.grid(row=1, column=0, sticky=W, padx=PADX)
 
         self.start_button = Button(self, font=INTERACTABLE_FONT, text="Start Game", command=self.start_game)
-        self.show_start = False
+        self.admin = False
+
+        self.back_button = Button(self, font=INTERACTABLE_FONT, text="Back to Game", command=lambda: self.root.show_frame(LoginFrame.__name__))
 
         self.player_data = []
 
-        # list of (original username label, currently hacking label, accessible label)
         self.labels = []
 
     def update_data(self, original_name, cur_hacking, accessible):
@@ -391,9 +369,8 @@ class MetaFrame(MainFrame):
 
     def display_data(self):
 
-        for lg in self.labels:
-            for l in lg:
-                l.grid_remove()
+        for l in self.labels:
+            l.grid_remove()
 
         for i in range(N_PLAYERS):
             self.columnconfigure(i, weight=0)
@@ -403,20 +380,52 @@ class MetaFrame(MainFrame):
             self.columnconfigure(i, weight=1)
 
             if i >= len(self.labels):
-                self.labels.append((Label(self), Label(self), Label(self)))
+                self.labels.append(Label(self))
 
-            for k in range(3):
-                self.labels[i][k].grid(row=k + 2, column=i)
+            self.labels[i].grid(row=2, column=i)
 
-            self.labels[i][0].config(text=p[0])
-            self.labels[i][1].config(text="Currently Hacking: " + p[1])
-            self.labels[i][2].config(text="Held accounts:\n" + '\n'.join(p[2]))
+            self.labels[i].config(text=p[0] + ("\n\nLOST" if len(p[2]) == 0 else
+                                               "\n\nCurrently Hacking: " + p[1] + "\n\nHeld accounts:\n" + '\n'.join(p[2])))
 
-        if self.show_start:
+        if self.admin and self.state == 0:
             self.start_button.grid_remove()
             self.start_button.grid(row=1, column=max(0, len(self.player_data) - 1), sticky=E, padx=PADX)
-        self.title_label.config(text="Lobby: " + self.root.lobby)
+
         self.title_label.grid(row=0, column=0, columnspan=max(len(self.player_data), 1))
+
+    def set_state(self, state):
+        self.state = state
+        if state == 0:
+            self.title_label.config(text="Lobby: " + self.root.lobby)
+            self.back_button.grid_remove()
+            self.exit_button.grid(row=1, column=0, sticky=W, padx=PADX)
+            if self.admin:
+                self.start_button.grid(row=1, column=max(0, len(self.player_data) - 1), sticky=E, padx=PADX)
+            else:
+                self.start_button.grid_remove()
+        elif state == 1:
+            self.title_label.config(text="Get Hacking!")
+            self.start_button.grid_remove()
+            self.exit_button.grid_remove()
+            self.back_button.grid(row=1, column=max(0, len(self.player_data) - 1), sticky=E, padx=PADX)
+        elif state == 2:
+            self.title_label.config(text="You Lost...")
+            self.start_button.grid_remove()
+            self.back_button.grid_remove()
+            self.exit_button.grid(row=1, column=0, sticky=W, padx=PADX)
+        elif state == 3:
+            self.title_label.config(text="You Won!")
+            self.start_button.grid_remove()
+            self.back_button.grid_remove()
+            self.exit_button.grid(row=1, column=0, sticky=W, padx=PADX)
+
+    def show_start(self):
+        self.admin = True
+        self.display_data()
+
+    def hide_start(self):
+        self.admin = False
+        self.display_data()
 
     def exit_lobby(self):
         self.root.exit_lobby()
@@ -427,3 +436,15 @@ class MetaFrame(MainFrame):
     def load(self):
         super().load()
         self.display_data()
+
+
+class ConnectingFrame(MainFrame):
+
+    def __init__(self, parent, root):
+        super().__init__(master=parent, root=root)
+
+        self.connecting_label = Label(self, text="Connecting to Server...", font=TITLE_FONT)
+        self.connecting_label.place(relx=0.5, rely=0.5, anchor=CENTER)
+
+    def display(self, message):
+        self.connecting_label.config(text=message)

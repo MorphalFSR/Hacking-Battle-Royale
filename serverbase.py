@@ -6,17 +6,14 @@ from protocol import *
 
 IP = '0.0.0.0'
 PORT = 25252
-INIT_MONEY = 500
 MAX_ATTEMPTS = 5
 BLOCK_TIME = 10
 
 MINUSERLEN = 4
 MAXUSERLEN = 8
+MINPASSLEN = 8
+MAXPASSLEN = 12
 ALLOWED_IN_USER = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
-
-PASSWORDS = {"a": "pass12345",
-             "b": "trollers147",
-             "c": "69Pog69"}
 
 
 def user_is_valid(username, minlen, maxlen, allowed_chars):
@@ -80,7 +77,7 @@ def hint_password(correct, attempt):
                 message += 'p'
     if len(attempt) < len(correct):
         message += SPACE + "\0r"
-    print(message)
+    print("AAAAAAAAAAAAAAAAAAA", message)
     return message[1:]
 
 
@@ -103,6 +100,7 @@ class Client(threading.Thread):
         self.accessible = []
         self.attempts = dict()
         self.block_times = dict()
+        self.in_game = True
 
     def clear_attempts(self, username):
         self.attempts[username] = 0
@@ -128,6 +126,7 @@ class Client(threading.Thread):
         self.accessible = []
         self.attempts = dict()
         self.block_times = dict()
+        self.in_game = True
 
 
 class Account:
@@ -135,7 +134,6 @@ class Account:
     def __init__(self, username, password):
         self.username = username
         self.password = password
-        self.money = INIT_MONEY
 
 
 class Lobby:
@@ -148,9 +146,10 @@ class Lobby:
         self.clients = []
         self.max_clients = N_PLAYERS
         self.accounts = dict()
-        self.minpasslen = 8
-        self.maxpasslen = 12
+        self.minpasslen = MINPASSLEN
+        self.maxpasslen = MAXPASSLEN
         self.allowed_in_pass = '1234567890'
+        self.init_players = None
 
         self.admin = None
 
@@ -170,8 +169,20 @@ class Lobby:
             return True
         return False
 
+    def get_active_players(self):
+        return [client for client in self.clients if client.in_game]
+
+    def update(self):
+        active_players = len(self.get_active_players())
+        self.minpasslen = MINPASSLEN - (self.init_players - active_players)
+        self.maxpasslen = MAXPASSLEN - (self.init_players - active_players)
+
+    def get_data(self):
+        return [(client.original_name, '-', *client.accessible) for client in self.clients]
+
     def open(self):
         self.is_open = True
 
     def start(self):
         self.started = True
+        self.init_players = len(self.clients)
