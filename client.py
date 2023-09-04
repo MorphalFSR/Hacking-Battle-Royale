@@ -7,7 +7,7 @@ from protocol import *
 from PIL import ImageTk, Image
 import sys
 
-HOST = '127.0.0.1'
+HOST = "127.0.0.1"
 PORT = 25252
 
 
@@ -23,8 +23,9 @@ class ClientApp(Tk):
         self.frames = dict()
         self.accounts = set()
 
+        self.title("Safe Haven Battle Royale")
+
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.settimeout(SOCKET_TIMEOUT)
         self.do_listen = True
         self.listen_thread = threading.Thread(target=self.listen, daemon=True)
 
@@ -56,7 +57,7 @@ class ClientApp(Tk):
         # set up quit message
         self.protocol(QUIT_EVENT, self.on_close)
 
-        self.setup_thread = threading.Thread(target=self.connect_and_setup)
+        self.setup_thread = threading.Thread(target=self.connect_and_setup, daemon=True)
         self.setup_thread.start()
 
         self.mainloop()
@@ -64,15 +65,15 @@ class ClientApp(Tk):
     def connect_and_setup(self):
         # set up socket and connect to server
         try:
+            print(f"Connecting to {HOST}:{PORT}")
             self.socket.connect((HOST, PORT))
+            self.socket.settimeout(SOCKET_TIMEOUT)
         except ConnectionError:
-            print("AAAAAAAA")
             try:
                 self.frames[ConnectingFrame.__name__].connecting_label.config(text="Connection failed, please try again.")
             except RuntimeError as e:
                 print(e)
             finally:
-                print("BBBBBBBB")
                 return
 
         self.listen_thread.start()
@@ -149,7 +150,6 @@ class ClientApp(Tk):
             try:
                 data = self.socket.recv(1024).decode()
 
-                print("GOT MESSAGE!")
                 print(data)
                 if len(data) > 0:
                     for message in data.split(BREAK):
@@ -164,11 +164,9 @@ class ClientApp(Tk):
                         argss[message[0]].append(message[1])
 
                     for args in argss[HACKED]:
-                        print(f"Account {args[0]} was hacked!")
                         self.display_message(f"Account {args[0]} was hacked!")
                     for args in argss[LOGOUT]:
                         username = args[0]
-                        print(f"You were logged out of the account: {username}")
                         self.display_message(f"You were logged out of the account: {username}")
                         self.accounts.discard(username)
                         if self.frames[InAppFrame.__name__].username == username:
@@ -186,7 +184,6 @@ class ClientApp(Tk):
                         self.display_message(f"User {username} does not exist")
                     for args in argss[BLOCKED]:
                         username, time = args
-                        print(f"You have been blocked from logging in to {username} for {time} seconds")
                         self.display_message(f"You have been blocked from logging in to {username} for {time} seconds")
                         self.frame[LoginFrame.__name__].attempts[username] = []
                     for args in argss[UNBLOCKED]:
@@ -264,7 +261,6 @@ class ClientApp(Tk):
                     self.show_frame(ConnectingFrame.__name__)
                 except RuntimeError as e:
                     print(e)
-        print("ABVHASVVA")
 
 
 if __name__ == "__main__":

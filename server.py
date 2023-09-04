@@ -4,6 +4,8 @@ from constants import *
 from serverbase import *
 from protocol import *
 import datetime
+import os
+from pyngrok import ngrok
 
 
 class Server(threading.Thread):
@@ -23,15 +25,17 @@ class Server(threading.Thread):
         for client in clients:
             if condition(client):
                 try:
-                    print(client.socket)
                     client.socket.send(message)
                 except (ConnectionError, OSError):
                     pass
 
     def handle_server(self):
         with self.socket:
+
             self.socket.bind((IP, PORT))
-            self.socket.listen()
+            print(f"Server connected on {IP}:{PORT}")
+            self.socket.listen(1)
+
             while True:
                 client_socket, address = self.socket.accept()
                 print(f"Connected to {client_socket}")
@@ -69,7 +73,6 @@ class Server(threading.Thread):
         try:
             while maintain_connection:
                 data = client.socket.recv(1024).decode().split(BREAK)
-                print("Got Message", *data)
                 data = [message for message in data if len(message) > 0]
 
                 for message in data:
@@ -121,7 +124,6 @@ class Server(threading.Thread):
                         if command == LOGOUT:
                             if client.lobby:
                                 username, = args
-                                print(username)
                                 for c in client.lobby.clients:
                                     if username in c.accessible and c is not client:
                                         c.accessible.remove(username)

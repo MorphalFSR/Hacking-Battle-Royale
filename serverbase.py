@@ -61,7 +61,6 @@ def hint_password(correct, attempt):
         p = purple = adjacent to the correct character in the ASCII table
         r = red = at the end of the string, indicates incorrect length"""
 
-    print(attempt)
     message = ""
     for i in range(len(attempt)):
         if i == len(correct):
@@ -77,7 +76,6 @@ def hint_password(correct, attempt):
                 message += 'p'
     if len(attempt) < len(correct):
         message += SPACE + "\0r"
-    print("AAAAAAAAAAAAAAAAAAA", message)
     return message[1:]
 
 

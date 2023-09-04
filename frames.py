@@ -60,7 +60,6 @@ class LoginFrame(MainFrame):
                 for i in range(len(attempt)):
                     char = attempt[i][0]
                     colors = [COLORS[c] for c in attempt[i][1:]]
-                    print(char)
                     char_box = Label(self.hints_container, bg=WHITE if len(colors) == 0 else colors[0], font=INTERACTABLE_FONT, height=1,
                                      width=1, text=char)
 
@@ -362,7 +361,6 @@ class MetaFrame(MainFrame):
     def remove_player(self, username):
         self.columnconfigure(len(self.player_data) - 1, weight=0)
         usernames = [p[0] for p in self.player_data]
-        print(usernames)
         if username in usernames:
             p_i = usernames.index(username)
             self.player_data.pop(p_i)
